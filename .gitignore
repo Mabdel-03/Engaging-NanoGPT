@@ -1,0 +1,37 @@
+# Python cache/artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Training outputs/checkpoints
+out/
+out-*/
+out*/
+*.pt
+*.ckpt
+
+# Experiment logging
+wandb/
+
+# Local logs (keep directory with .gitkeep)
+logs/*
+!logs/.gitkeep
+
+# NanoGPT prepared datasets
+nanogpt/data/openwebtext/*.bin
+nanogpt/data/openwebtext/*.pkl
+nanogpt/data/openwebtext/__pycache__/
+nanogpt/data/shakespeare_char/*.bin
+nanogpt/data/shakespeare_char/*.pkl
+nanogpt/data/shakespeare_char/__pycache__/
+
+# Modded-nanogpt cached data
+modded_nanogpt/data/fineweb10B/
+
+# Local environment files
+.env
+.venv/
+venv/
+env/
