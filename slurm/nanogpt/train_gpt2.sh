@@ -4,11 +4,21 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=32
-#SBATCH --gres=gpu:2
+#SBATCH --gres=gpu:h100:2
 #SBATCH --time=2-00:00:00
 #SBATCH --output=logs/%x-%j.out
 
 set -euo pipefail
+
+# Defaults for one-node GPT-2 pretraining. Override at submission time, for example:
+#   GPU_TYPE=h100 GPUS_PER_NODE=4 GRAD_ACC_STEPS=40 \
+#   sbatch --gres=gpu:${GPU_TYPE}:${GPUS_PER_NODE} slurm/nanogpt/train_gpt2.sh
+GPU_TYPE="${GPU_TYPE:-h100}"
+GPUS_PER_NODE="${GPUS_PER_NODE:-2}"
+GRAD_ACC_STEPS="${GRAD_ACC_STEPS:-20}"
+WANDB_LOG="${WANDB_LOG:-False}"
+CONDA_SH="${CONDA_SH:-${HOME}/miniforge3/etc/profile.d/conda.sh}"
+ENV_PATH="${ENV_PATH:-${HOME}/conda_envs/nanogpt_env}"
 
 mkdir -p logs
 
@@ -16,8 +26,14 @@ if command -v module >/dev/null 2>&1; then
   module load cuda/12.4.0 cudnn/9.8.0.87-cuda12
 fi
 
-source /orcd/data/lhtsai/001/om2/mabdel03/miniforge3/etc/profile.d/conda.sh
-conda activate /home/mabdel03/conda_envs/nanogpt_env
+if [[ ! -f "${CONDA_SH}" ]]; then
+  echo "Could not find conda initialization script at: ${CONDA_SH}" >&2
+  echo "Set CONDA_SH to your conda.sh path before submitting this job." >&2
+  exit 1
+fi
+
+source "${CONDA_SH}"
+conda activate "${ENV_PATH}"
 
 if [[ -n "${SLURM_SUBMIT_DIR:-}" && -d "${SLURM_SUBMIT_DIR}" ]]; then
   REPO_ROOT="${SLURM_SUBMIT_DIR}"
@@ -30,13 +46,10 @@ export OMP_NUM_THREADS="${SLURM_CPUS_PER_TASK:-8}"
 export NCCL_IB_DISABLE="${NCCL_IB_DISABLE:-1}"
 export NCCL_DEBUG="${NCCL_DEBUG:-WARN}"
 
-GPUS_PER_NODE="${GPUS_PER_NODE:-2}"
-GRAD_ACC_STEPS="${GRAD_ACC_STEPS:-20}"
-WANDB_LOG="${WANDB_LOG:-False}"
 OUT_DIR="${REPO_ROOT}/out/nanogpt-gpt2"
 
 echo "Node: ${SLURMD_NODENAME:-$(hostname)}"
-echo "SLURM_NNODES=${SLURM_NNODES:-1}, GPUS_PER_NODE=${GPUS_PER_NODE}, NCCL_IB_DISABLE=${NCCL_IB_DISABLE}"
+echo "GPU_TYPE=${GPU_TYPE}, SLURM_NNODES=${SLURM_NNODES:-1}, GPUS_PER_NODE=${GPUS_PER_NODE}, GRAD_ACC_STEPS=${GRAD_ACC_STEPS}, NCCL_IB_DISABLE=${NCCL_IB_DISABLE}"
 nvidia-smi
 
 if [[ "${SLURM_NNODES:-1}" -gt 1 ]]; then

@@ -1,12 +1,53 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-CONDA_SH="/orcd/data/lhtsai/001/om2/mabdel03/miniforge3/etc/profile.d/conda.sh"
-ENV_PATH="/home/mabdel03/conda_envs/nanogpt_env"
+ENV_PATH="${ENV_PATH:-${HOME}/conda_envs/nanogpt_env}"
 
-if [[ ! -f "${CONDA_SH}" ]]; then
-  echo "Could not find conda initialization script at: ${CONDA_SH}" >&2
-  exit 1
+if [[ -n "${CONDA_SH:-}" ]]; then
+  if [[ ! -f "${CONDA_SH}" ]]; then
+    echo "CONDA_SH is set, but file was not found: ${CONDA_SH}" >&2
+    exit 1
+  fi
+else
+  for candidate in \
+    "${HOME}/miniforge3/etc/profile.d/conda.sh" \
+    "${HOME}/mambaforge/etc/profile.d/conda.sh" \
+    "${HOME}/anaconda3/etc/profile.d/conda.sh" \
+    "/opt/conda/etc/profile.d/conda.sh"; do
+    if [[ -f "${candidate}" ]]; then
+      CONDA_SH="${candidate}"
+      break
+    fi
+  done
+fi
+
+if [[ -z "${CONDA_SH:-}" || ! -f "${CONDA_SH}" ]]; then
+  MINIFORGE_DIR="${HOME}/miniforge3"
+  MINIFORGE_SH="${MINIFORGE_DIR}/etc/profile.d/conda.sh"
+  MINIFORGE_URL="https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh"
+  MINIFORGE_INSTALLER="${TMPDIR:-/tmp}/Miniforge3-Linux-x86_64.sh"
+
+  echo "No conda installation detected. Installing Miniforge to ${MINIFORGE_DIR}..."
+  if [[ -f "${MINIFORGE_SH}" ]]; then
+    echo "Found existing Miniforge at ${MINIFORGE_DIR}; reusing it."
+  else
+    if command -v wget >/dev/null 2>&1; then
+      wget -O "${MINIFORGE_INSTALLER}" "${MINIFORGE_URL}"
+    elif command -v curl >/dev/null 2>&1; then
+      curl -L -o "${MINIFORGE_INSTALLER}" "${MINIFORGE_URL}"
+    else
+      echo "Could not download Miniforge: neither wget nor curl is available." >&2
+      exit 1
+    fi
+    bash "${MINIFORGE_INSTALLER}" -b -p "${MINIFORGE_DIR}"
+    rm -f "${MINIFORGE_INSTALLER}"
+  fi
+
+  CONDA_SH="${MINIFORGE_SH}"
+  if [[ ! -f "${CONDA_SH}" ]]; then
+    echo "Miniforge installation did not produce conda.sh at ${CONDA_SH}" >&2
+    exit 1
+  fi
 fi
 
 source "${CONDA_SH}"
@@ -55,11 +96,11 @@ if ! python -m pip install kernels; then
   echo "Optional package 'kernels' could not be installed; continuing."
 fi
 
-cat <<'EOF'
+cat <<EOF
 
 Environment setup complete.
 To activate manually:
-  source /orcd/data/lhtsai/001/om2/mabdel03/miniforge3/etc/profile.d/conda.sh
-  conda activate /home/mabdel03/conda_envs/nanogpt_env
+  source ${CONDA_SH}
+  conda activate ${ENV_PATH}
 
 EOF
