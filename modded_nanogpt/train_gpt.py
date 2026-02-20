@@ -907,7 +907,12 @@ class AttnArgs:
     attn_gate_w: torch.Tensor
     ve_gate_w: torch.Tensor
 
-flash_attn_interface = get_kernel('varunneal/flash-attention-3').flash_attn_interface
+# Prefer the speedrun kernel package when available, but keep a fallback
+# for portability across environments with different FlashAttention installs.
+try:
+    flash_attn_interface = get_kernel('varunneal/flash-attention-3').flash_attn_interface
+except Exception:
+    import flash_attn.flash_attn_interface as flash_attn_interface
 
 class CausalSelfAttention(nn.Module):
     def __init__(self, dim: int, head_dim: int, num_heads: int, paired: bool = False):

@@ -267,6 +267,12 @@ FINEWEB_CHUNKS=3 sbatch slurm/modded/prepare_fineweb.sh
 GPU_TYPE=h100 sbatch --gres=gpu:${GPU_TYPE}:1 slurm/modded/build_flash_attn.sh
 ```
 
+Backend note:
+
+- `modded_nanogpt/train_gpt.py` first tries the speedrun kernel interface (`varunneal/flash-attention-3`) and falls back to local `flash_attn` if unavailable.
+- This improves portability for general users.
+- For strict speedrun comparability and reproducibility, pin the exact FlashAttention backend/version and keep it fixed across runs.
+
 ### 6.4 Train modded NanoGPT with configurable GPU count
 
 Default script launch (8x H100 by default in script headers):
