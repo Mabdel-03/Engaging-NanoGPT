@@ -11,7 +11,9 @@
 set -euo pipefail
 
 # Default to 8x H100. Override at submission time, for example:
-#   GPU_TYPE=h100 NUM_GPUS=2 sbatch --gres=gpu:${GPU_TYPE}:${NUM_GPUS} slurm/modded/train_speedrun.sh
+#   GPU_TYPE=h100 NUM_GPUS=2 sbatch --gres=gpu:${GPU_TYPE}:${NUM_GPUS} --cpus-per-task=32 slurm/modded/train_speedrun.sh
+# When using fewer than 8 GPUs, also override --cpus-per-task to avoid QOS CPU limits.
+# Suggested values: 1 GPU -> 16, 2 GPUs -> 32, 4 GPUs -> 64, 8 GPUs -> 120 (default).
 GPU_TYPE="${GPU_TYPE:-h100}"
 NUM_GPUS="${NUM_GPUS:-8}"
 CONDA_SH="${CONDA_SH:-${HOME}/miniforge3/etc/profile.d/conda.sh}"
