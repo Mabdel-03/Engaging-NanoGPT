@@ -4,13 +4,13 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=120
-#SBATCH --gres=gpu:h100:8
+#SBATCH --gres=gpu:8
 #SBATCH --time=00:30:00
 #SBATCH --output=logs/%x-%j.out
 
 set -euo pipefail
 
-# Default to 8x H100. Override at submission time, for example:
+# Default to 8 GPUs (any type). Override at submission time, for example:
 #   GPU_TYPE=h100 NUM_GPUS=2 sbatch --gres=gpu:${GPU_TYPE}:${NUM_GPUS} --cpus-per-task=32 slurm/modded/train_speedrun.sh
 # When using fewer than 8 GPUs, also override --cpus-per-task to avoid QOS CPU limits.
 # Suggested values: 1 GPU -> 16, 2 GPUs -> 32, 4 GPUs -> 64, 8 GPUs -> 120 (default).

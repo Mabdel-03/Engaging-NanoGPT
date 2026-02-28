@@ -6,9 +6,9 @@ This repository is a self-contained Engaging playbook for researchers who want t
 2. Run Keller Jordan's modded-nanogpt speedrun flow end-to-end.
 3. Use both as a launchpad for new modded NanoGPT research.
 
-The scripts in this repo are now modularized for GPU configuration:
+The scripts in this repo are modularized for GPU configuration:
 
-- Default GPU type is `h100` (configurable).
+- SLURM script headers request GPUs generically (no type constraint). Override with `--gres=gpu:h100:N` at submission time to target a specific type.
 - Baseline NanoGPT can run with flexible GPU counts through DDP.
 - Modded run is supported for `NUM_GPUS` in `{1, 2, 4, 8}` in this vendored snapshot.
 
@@ -113,6 +113,16 @@ cd /path/to/your/workspace
 git clone https://github.com/Mabdel-03/Engaging-NanoGPT.git
 cd Engaging-NanoGPT
 ```
+
+Verify you cloned the correct upstream repo:
+
+```bash
+git remote -v
+# origin  https://github.com/Mabdel-03/Engaging-NanoGPT.git (fetch)
+# origin  https://github.com/Mabdel-03/Engaging-NanoGPT.git (push)
+```
+
+If the URL points to a personal fork or a different repo, re-clone from the URL above.
 
 From this point onward, run commands from `Engaging-NanoGPT/` unless the README explicitly says otherwise.
 
@@ -219,13 +229,19 @@ sbatch slurm/nanogpt/prepare_openwebtext.sh
 GPU_TYPE=h100 sbatch --gres=gpu:${GPU_TYPE}:1 slurm/nanogpt/train_shakespeare.sh
 ```
 
+If H100 jobs sit in PENDING, fall back to A100 via a BCS partition:
+
+```bash
+GPU_TYPE=a100 sbatch -p ou_bcs_normal --gres=gpu:${GPU_TYPE}:1 slurm/nanogpt/train_shakespeare.sh
+```
+
 Outputs land in:
 
 - `out/nanogpt-shakespeare/`
 
 ### 5.5 Train baseline GPT-2 with configurable GPU count
 
-Default script launch (2x H100 by default in script headers):
+Default script launch (2 GPUs by default in script headers):
 
 ```bash
 sbatch slurm/nanogpt/train_gpt2.sh
@@ -371,6 +387,12 @@ FINEWEB_CHUNKS=3 sbatch slurm/modded/prepare_fineweb.sh
 GPU_TYPE=h100 sbatch --gres=gpu:${GPU_TYPE}:1 slurm/modded/build_flash_attn.sh
 ```
 
+If H100 is not available, build on an A100 instead:
+
+```bash
+GPU_TYPE=a100 TORCH_CUDA_ARCH_LIST=8.0 sbatch -p ou_bcs_normal --gres=gpu:${GPU_TYPE}:1 slurm/modded/build_flash_attn.sh
+```
+
 Backend note:
 
 - `modded_nanogpt/train_gpt.py` first tries the speedrun kernel interface (`varunneal/flash-attention-3`) and falls back to local `flash_attn` if unavailable.
@@ -379,7 +401,7 @@ Backend note:
 
 ### 6.4 Train modded NanoGPT with configurable GPU count
 
-Default script launch (8x H100 by default in script headers):
+Default script launch (8 GPUs by default in script headers):
 
 ```bash
 sbatch slurm/modded/train_speedrun.sh
@@ -414,11 +436,25 @@ GPU_TYPE=h200 NUM_GPUS=8 \
 sbatch --gres=gpu:${GPU_TYPE}:${NUM_GPUS} slurm/modded/train_speedrun.sh
 ```
 
+A100 via BCS (when H100 is unavailable or pending):
+
+```bash
+# 1x A100
+GPU_TYPE=a100 NUM_GPUS=1 \
+sbatch -p ou_bcs_normal --gres=gpu:${GPU_TYPE}:${NUM_GPUS} --cpus-per-task=16 slurm/modded/train_speedrun.sh
+
+# 8x A100 (full speedrun)
+GPU_TYPE=a100 NUM_GPUS=8 \
+sbatch -p ou_bcs_normal --gres=gpu:${GPU_TYPE}:${NUM_GPUS} slurm/modded/train_speedrun.sh
+```
+
 Important:
 
 - This vendored modded script expects `world_size` in `{1, 2, 4, 8}`.
 - That comes from internal sharding/schedule assumptions in `train_gpt.py`.
 - The script header defaults to `--cpus-per-task=120` (sized for 8 GPUs / full node). When requesting fewer GPUs, override `--cpus-per-task` on the command line to avoid QOS CPU limits. Suggested values: 1 GPU = 16, 2 GPUs = 32, 4 GPUs = 64.
+- BCS H100 nodes have only 4 GPUs each. For 8-GPU speedruns, target A100 x8 nodes via `ou_bcs_normal` or `ou_bcs_low`.
+- If jobs sit in PENDING, check availability with `sinfo -o "%P %G %N %a" | grep gpu` and try a different partition or GPU type.
 
 ### 6.5 What you can do with modded NanoGPT (modularity)
 
@@ -451,9 +487,11 @@ For a new Engaging researcher, the minimal flow is:
 5. Validate modded path:
    - `sbatch slurm/modded/prepare_fineweb.sh`
    - `GPU_TYPE=h100 NUM_GPUS=1 sbatch --gres=gpu:h100:1 --cpus-per-task=16 slurm/modded/train_speedrun.sh`
+   - If H100 is pending: `GPU_TYPE=a100 NUM_GPUS=1 sbatch -p ou_bcs_normal --gres=gpu:a100:1 --cpus-per-task=16 slurm/modded/train_speedrun.sh`
 6. Scale to target hardware:
    - Baseline: tune `GPUS_PER_NODE` + `GRAD_ACC_STEPS`
    - Modded: increase `NUM_GPUS` to `2`, `4`, then `8`
+   - For 8-GPU runs, use A100 x8 nodes (BCS H100 nodes have only 4 GPUs)
 
 ---
 
@@ -474,7 +512,7 @@ Use this repository to:
 ## Appendix A: Useful Cluster Commands
 
 ```bash
-sinfo -o "%P %G %N %a" | rg gpu
+sinfo -o "%P %G %N %a" | grep gpu
 squeue -u "$USER"
 sacct -u "$USER" --format=JobID,JobName,Partition,State,Elapsed,ExitCode
 ```

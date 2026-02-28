@@ -4,7 +4,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=12
-#SBATCH --gres=gpu:h100:1
+#SBATCH --gres=gpu:1
 #SBATCH --time=00:15:00
 #SBATCH --output=logs/%x-%j.out
 

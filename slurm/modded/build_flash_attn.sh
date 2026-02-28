@@ -4,14 +4,14 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=32
-#SBATCH --gres=gpu:h100:1
+#SBATCH --gres=gpu:1
 #SBATCH --mem=64G
 #SBATCH --time=04:00:00
 #SBATCH --output=logs/%x-%j.out
 
 set -euo pipefail
 
-# Default request is 1x H100. Override at submission time, for example:
+# Default request is 1 GPU (any type). Override at submission time, for example:
 #   GPU_TYPE=h100 sbatch --gres=gpu:${GPU_TYPE}:1 slurm/modded/build_flash_attn.sh
 GPU_TYPE="${GPU_TYPE:-h100}"
 CONDA_SH="${CONDA_SH:-${HOME}/miniforge3/etc/profile.d/conda.sh}"
